@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Betasan İhracat</string>
+    <string name="title_shipments">Sevkiyatlar</string>
+    <string name="title_alerts">Alarmlar</string>
+    <string name="title_settings">Ayarlar</string>
+    <string name="default_api_url">https://betasan-export.onrender.com/api/</string>
+</resources>

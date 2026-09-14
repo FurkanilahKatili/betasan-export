@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "BetasanApp"
 include(":app")
+include(":export_app")

@@ -1,0 +1,34 @@
+[
+    {
+        "merged": "com.betasan.exporttracker.export_app-mergeDebugResources-3:/layout/item_alert_card.xml",
+        "source": "com.betasan.exporttracker.export_app-main-6:/layout/item_alert_card.xml"
+    },
+    {
+        "merged": "com.betasan.exporttracker.export_app-mergeDebugResources-3:/layout/fragment_alerts.xml",
+        "source": "com.betasan.exporttracker.export_app-main-6:/layout/fragment_alerts.xml"
+    },
+    {
+        "merged": "com.betasan.exporttracker.export_app-mergeDebugResources-3:/layout/item_task_checklist.xml",
+        "source": "com.betasan.exporttracker.export_app-main-6:/layout/item_task_checklist.xml"
+    },
+    {
+        "merged": "com.betasan.exporttracker.export_app-mergeDebugResources-3:/layout/fragment_shipments.xml",
+        "source": "com.betasan.exporttracker.export_app-main-6:/layout/fragment_shipments.xml"
+    },
+    {
+        "merged": "com.betasan.exporttracker.export_app-mergeDebugResources-3:/layout/activity_main.xml",
+        "source": "com.betasan.exporttracker.export_app-main-6:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.betasan.exporttracker.export_app-mergeDebugResources-3:/layout/item_shipment_card.xml",
+        "source": "com.betasan.exporttracker.export_app-main-6:/layout/item_shipment_card.xml"
+    },
+    {
+        "merged": "com.betasan.exporttracker.export_app-mergeDebugResources-3:/layout/activity_shipment_detail.xml",
+        "source": "com.betasan.exporttracker.export_app-main-6:/layout/activity_shipment_detail.xml"
+    },
+    {
+        "merged": "com.betasan.exporttracker.export_app-mergeDebugResources-3:/layout/fragment_settings.xml",
+        "source": "com.betasan.exporttracker.export_app-main-6:/layout/fragment_settings.xml"
+    }
+]

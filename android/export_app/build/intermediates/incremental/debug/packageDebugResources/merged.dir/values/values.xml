@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent_amber">#D97706</color>
+    <color name="amber_light">#FEF3C7</color>
+    <color name="bg_light">#F8FAFC</color>
+    <color name="border_color">#E2E8F0</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="critical_red">#DC2626</color>
+    <color name="green_light">#DCFCE7</color>
+    <color name="primary_blue">#134074</color>
+    <color name="primary_navy">#0B2545</color>
+    <color name="red_light">#FEE2E2</color>
+    <color name="success_green">#16A34A</color>
+    <color name="text_main">#0F172A</color>
+    <color name="text_muted">#64748B</color>
+    <color name="white">#FFFFFF</color>
+    <string name="app_name">Betasan İhracat</string>
+    <string name="default_api_url">https://betasan-export.onrender.com/api/</string>
+    <string name="title_alerts">Alarmlar</string>
+    <string name="title_settings">Ayarlar</string>
+    <string name="title_shipments">Sevkiyatlar</string>
+    <style name="Theme.BetasanExport" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary_navy</item>
+        <item name="colorPrimaryVariant">@color/primary_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/accent_amber</item>
+        <item name="android:statusBarColor">@color/primary_navy</item>
+        <item name="android:windowBackground">@color/bg_light</item>
+    </style>
+</resources>
