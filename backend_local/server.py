@@ -226,6 +226,12 @@ BASE_LAYOUT = """
 
 # ==================== WEB VIEWS ====================
 
+def render_admin_page(content, **context):
+    clean = content.replace('{% extends "base" %}', '').replace('{% block content %}', '').replace('{% endblock %}', '')
+    full_html = BASE_LAYOUT.replace('{% block content %}{% endblock %}', clean)
+    return render_template_string(full_html, **context)
+
+
 @app.route("/")
 @app.route("/admin")
 def admin_dashboard():
@@ -345,7 +351,7 @@ def admin_dashboard():
     </div>
     {% endblock %}
     """
-    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", content),
+    return render_admin_page(content,
                                   title="Genel Bakış",
                                   local_ip=get_local_ip(),
                                   product_count=product_count,
@@ -465,7 +471,7 @@ def admin_products():
     </div>
     {% endblock %}
     """
-    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", content),
+    return render_admin_page(content,
                                   title="Ürünler",
                                   local_ip=get_local_ip(),
                                   products=products,
@@ -567,7 +573,7 @@ def admin_product_add():
     </div>
     {% endblock %}
     """
-    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", content),
+    return render_admin_page(content,
                                   title="Yeni Ürün Ekle",
                                   local_ip=get_local_ip(),
                                   categories=categories)
@@ -674,7 +680,7 @@ def admin_product_edit(id):
     </div>
     {% endblock %}
     """
-    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", content),
+    return render_admin_page(content,
                                   title="Ürün Düzenle",
                                   local_ip=get_local_ip(),
                                   product=product,
@@ -745,7 +751,7 @@ def admin_categories():
     </div>
     {% endblock %}
     """
-    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", content),
+    return render_admin_page(content,
                                   title="Kategoriler",
                                   local_ip=get_local_ip(),
                                   categories=categories)
@@ -804,7 +810,7 @@ def admin_inquiries():
     </div>
     {% endblock %}
     """
-    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", content),
+    return render_admin_page(content,
                                   title="Gelen Sepet Talepleri",
                                   local_ip=get_local_ip(),
                                   inquiries=inquiries)
@@ -1066,7 +1072,7 @@ def admin_notifications():
     </script>
     {% endblock %}
     """
-    return render_template_string(BASE_LAYOUT.replace("{% block content %}{% endblock %}", content),
+    return render_admin_page(content,
                                   title="Tüm Kullanıcılara Bildirim Gönder",
                                   local_ip=get_local_ip(),
                                   notifications=notifications,
