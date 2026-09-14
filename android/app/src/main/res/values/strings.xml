@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Betasan</string>
+    <string name="nav_home">Vitrin</string>
+    <string name="nav_catalog">Katalog</string>
+    <string name="nav_offers">İndirimler</string>
+    <string name="nav_notifications">Bildirimler</string>
+    
+    <string name="cart_title">Sepetim &amp; Teklif Talebi</string>
+    <string name="add_to_cart">Sepete Ekle</string>
+    <string name="send_via_whatsapp">WhatsApp ile İlet</string>
+    <string name="send_via_email">E-Posta ile İlet</string>
+    <string name="clear_cart">Sepeti Temizle</string>
+    
+    <string name="customer_name_hint">Ad Soyad / Firma Adı *</string>
+    <string name="customer_phone_hint">Telefon Numarası</string>
+    <string name="customer_notes_hint">Varsa Sipariş / Teklif Notunuz...</string>
+    
+    <string name="search_hint">Ürün adı, kod veya özellik ara...</string>
+    <string name="empty_cart_msg">Sepetinizde henüz ürün bulunmuyor.</string>
+    <string name="empty_products_msg">Kriterlere uygun ürün bulunamadı.</string>
+</resources>

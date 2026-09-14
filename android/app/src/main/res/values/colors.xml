@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#0B3B60</color>
+    <color name="primary_dark">#06243C</color>
+    <color name="primary_light">#EBF2F7</color>
+    <color name="accent">#0284C7</color>
+    
+    <color name="whatsapp_green">#25D366</color>
+    <color name="whatsapp_dark">#1EBE5D</color>
+    <color name="discount_red">#DC2626</color>
+    <color name="discount_badge_bg">#FEE2E2</color>
+    
+    <color name="background">#F8FAFC</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="card_border">#E2E8F0</color>
+    
+    <color name="text_primary">#0F172A</color>
+    <color name="text_secondary">#64748B</color>
+    <color name="text_muted">#94A3B8</color>
+    
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>
