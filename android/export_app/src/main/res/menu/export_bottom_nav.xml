@@ -5,6 +5,10 @@
         android:icon="@drawable/ic_nav_shipment"
         android:title="Sevkiyatlar" />
     <item
+        android:id="@+id/nav_customers"
+        android:icon="@drawable/ic_nav_customer"
+        android:title="Müşteriler" />
+    <item
         android:id="@+id/nav_alerts"
         android:icon="@drawable/ic_nav_alert"
         android:title="Alarmlar" />

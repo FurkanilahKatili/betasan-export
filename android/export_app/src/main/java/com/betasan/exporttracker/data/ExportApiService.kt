@@ -32,4 +32,10 @@ interface ExportApiService {
 
     @POST("exports/task/{id}/delete")
     suspend fun deleteTask(@Path("id") id: Int): Response<GenericResponse>
+
+    @POST("customers")
+    suspend fun addCustomer(@retrofit2.http.Body request: CreateCustomerRequest): Response<GenericResponse>
+
+    @POST("customers/{id}/delete")
+    suspend fun deleteCustomer(@Path("id") id: Int): Response<GenericResponse>
 }

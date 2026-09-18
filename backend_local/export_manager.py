@@ -5,7 +5,11 @@ import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
-from flask import Blueprint, request, jsonify, render_template_string, redirect, url_for, flash, current_app
+from flask import Blueprint, request, jsonify, render_template_string, redirect, url_for, flash, current_app, send_file
+import io
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 export_bp = Blueprint('export_manager', __name__)
 
@@ -445,6 +449,10 @@ def admin_exports():
                     <span class="bg-rose-600 text-white text-xs px-2 py-0.5 rounded-full font-extrabold">{{ total_alerts_count }}</span>
                     {% endif %}
                 </a>
+                <a href="{{ url_for('export_manager.admin_export_excel_report') }}" class="inline-flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl shadow-sm transition text-sm" title="Tüm sevkiyatları ve evrakları Excel formatında indir">
+                    <i class="fa-solid fa-file-excel"></i>
+                    <span>Excel Raporu</span>
+                </a>
                 <button onclick="document.getElementById('modal-new-export').classList.remove('hidden')" class="inline-flex items-center space-x-2 bg-[#0B3B60] hover:bg-sky-900 text-white font-bold px-4 py-2.5 rounded-xl shadow-md transition text-sm">
                     <i class="fa-solid fa-plus"></i>
                     <span>Yeni İhracat Dosyası Aç</span>
@@ -861,6 +869,11 @@ def admin_export_detail(id):
                     </select>
                 </form>
 
+                <button onclick="shareViaWhatsapp()" class="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition" title="WhatsApp ile Operasyon Özeti Paylaş">
+                    <i class="fa-brands fa-whatsapp text-sm"></i>
+                    <span>WhatsApp Paylaş</span>
+                </button>
+
                 <button onclick="document.getElementById('modal-add-task').classList.remove('hidden')" class="inline-flex items-center space-x-2 bg-[#0B3B60] hover:bg-sky-900 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition">
                     <i class="fa-solid fa-plus"></i>
                     <span>+ Özel İhtiyaç / Evrak Ekle</span>
@@ -1100,6 +1113,32 @@ def admin_export_detail(id):
     </div>
 
     <script>
+    function shareViaWhatsapp() {
+        const fileNo = "{{ s.file_no }}";
+        const cust = "{{ s.customer_name }}";
+        const route = "{{ s.country }}{% if s.destination_port %} - {{ s.destination_port }}{% endif %} ({{ s.incoterm }})";
+        const carrier = "{{ s.carrier_forwarder or 'Belirtilmedi' }}";
+        const cutoff = "{{ s.cutoff_datetime or 'Belirtilmedi' }}";
+        const progress = "{{ done_t }}/{{ total_t }} Evrak Tamamlandı";
+        
+        let text = "📦 *BETASAN İHRACAT OPERASYON BİLGİLENDİRMESİ*\\n";
+        text += "━━━━━━━━━━━━━━━━━━━━\\n";
+        text += "📄 *Dosya:* " + fileNo + "\\n";
+        text += "🏢 *Müşteri:* " + cust + "\\n";
+        text += "📍 *Rota:* " + route + "\\n";
+        text += "🚢 *Taşıyıcı:* " + carrier + "\\n";
+        text += "⏱️ *Liman Cut-off:* " + cutoff + "\\n";
+        text += "📊 *İlerleme:* " + progress + "\\n\\n";
+        text += "📋 *Evrak & Görev Durumu:*\\n";
+        
+        {% for t in tasks %}
+        text += "{{ '✓' if t.is_completed else '⏳' }} {{ t.title }}: {{ 'İletildi' if t.is_completed else 'Bekliyor' }}\\n";
+        {% endfor %}
+        
+        const url = "https://api.whatsapp.com/send?text=" + encodeURIComponent(text);
+        window.open(url, '_blank');
+    }
+
     function openUploadModal(taskId, title) {
         document.getElementById('modal-upload-title').innerText = title + ' - Evrak / Takip Ekle';
         document.getElementById('upload-form').action = '/admin/exports/task/' + taskId + '/upload';
@@ -1785,6 +1824,15 @@ def api_add_customer():
         conn.close()
         return jsonify({"success": False, "message": str(e)}), 400
 
+@export_bp.route("/api/customers/<int:id>/delete", methods=["POST", "DELETE"])
+def api_customer_delete(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM export_customers WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Müşteri rehberden silindi"})
+
 # ==================== JSON REST API: SİPARİŞ EKLEME, SİLME & ÖZEL İHTİYAÇLAR ====================
 
 @export_bp.route("/api/exports/add", methods=["POST"])
@@ -1907,3 +1955,214 @@ def api_task_delete(id):
     conn.commit()
     conn.close()
     return jsonify({"success": True, "message": "İhtiyaç/evrak silindi"})
+
+
+# ==================== EXCEL RAPOR ÜRETİMİ (OPENPYXL) ====================
+
+def generate_export_excel_report(conn):
+    wb = openpyxl.Workbook()
+    
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="0B2545", end_color="0B2545", fill_type="solid")
+    sub_header_fill = PatternFill(start_color="134074", end_color="134074", fill_type="solid")
+    thin_border = Border(
+        left=Side(style='thin', color='D9D9D9'),
+        right=Side(style='thin', color='D9D9D9'),
+        top=Side(style='thin', color='D9D9D9'),
+        bottom=Side(style='thin', color='D9D9D9')
+    )
+    center_align = Alignment(horizontal="center", vertical="center")
+    left_align = Alignment(horizontal="left", vertical="center")
+
+    cursor = conn.cursor()
+
+    # 1. SHEET: SEVKİYATLAR ÖZETİ
+    ws_shipments = wb.active
+    ws_shipments.title = "Sevkiyatlar"
+    ws_shipments.views.sheetView[0].showGridLines = True
+
+    shipment_headers = [
+        "Dosya No", "Müşteri Firma", "Hedef Ülke", "Varış Limanı / Şehir",
+        "Taşıma Şekli", "Incoterm", "Taşıyıcı / Forwarder", "Liman Kapanış (Cut-off)",
+        "Kalkış (ETD)", "Varış (ETA)", "Durum", "Evrak İlerleme",
+        "Tamamlanma %", "Bekleyen Evrak Sayısı", "Aktif Alarmlar", "Oluşturulma Tarihi"
+    ]
+
+    ws_shipments.append(shipment_headers)
+    for col_idx in range(1, len(shipment_headers) + 1):
+        cell = ws_shipments.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+
+    cursor.execute("SELECT * FROM export_shipments ORDER BY id DESC")
+    shipments = cursor.fetchall()
+
+    for row_idx, s in enumerate(shipments, start=2):
+        s_id = s["id"]
+        cursor.execute("SELECT COUNT(*) as total, SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as done FROM export_tasks WHERE shipment_id = ?", (s_id,))
+        t_counts = cursor.fetchone()
+        tot = t_counts["total"] or 0
+        done = t_counts["done"] or 0
+        pct = round((done / tot) * 100, 1) if tot > 0 else 0
+        pending = tot - done
+
+        cursor.execute("SELECT COUNT(*) as alert_count FROM export_alerts WHERE shipment_id = ? AND is_resolved = 0", (s_id,))
+        a_count = cursor.fetchone()["alert_count"] or 0
+
+        status_map = {
+            "preparing": "Hazırlanıyor",
+            "customs": "Gümrükte",
+            "in_transit": "Yolda",
+            "delivered": "Teslim Edildi",
+            "completed": "Tamamlandı"
+        }
+        status_tr = status_map.get(s["status"], s["status"] or "Hazırlanıyor")
+        trans_map = {"sea": "Denizyolu 🚢", "road": "Karayolu 🚚", "air": "Havayolu ✈️", "rail": "Demiryolu 🚆"}
+        trans_tr = trans_map.get(s["transport_mode"], s["transport_mode"] or "Denizyolu")
+
+        row_data = [
+            s["file_no"],
+            s["customer_name"],
+            s["country"],
+            s["destination_port"] or "-",
+            trans_tr,
+            s["incoterm"] or "FOB",
+            s["carrier_forwarder"] or "-",
+            s["cutoff_datetime"] or "-",
+            s["etd"] or "-",
+            s["eta"] or "-",
+            status_tr,
+            f"{done}/{tot}",
+            f"%{pct}",
+            pending,
+            f"{a_count} Uyarı" if a_count > 0 else "Yok",
+            s["created_at"] or "-"
+        ]
+        ws_shipments.append(row_data)
+
+        for col_idx in range(1, len(row_data) + 1):
+            c = ws_shipments.cell(row=row_idx, column=col_idx)
+            c.border = thin_border
+            if col_idx in (1, 3, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16):
+                c.alignment = center_align
+            else:
+                c.alignment = left_align
+
+    # 2. SHEET: DETAYLI EVRAK & İHTİYAÇ LİSTESİ
+    ws_tasks = wb.create_sheet(title="Evrak ve İhtiyaç Listesi")
+    ws_tasks.views.sheetView[0].showGridLines = True
+    task_headers = [
+        "Dosya No", "Müşteri", "Evrak / İhtiyaç Tanımı", "Kategori",
+        "Öncelik", "İletildi mi?", "Tamamlanma Tarihi", "Son Tarih", "Özel Notlar"
+    ]
+    ws_tasks.append(task_headers)
+    for col_idx in range(1, len(task_headers) + 1):
+        cell = ws_tasks.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = sub_header_fill
+        cell.alignment = center_align
+
+    cursor.execute("""
+        SELECT t.*, s.file_no, s.customer_name 
+        FROM export_tasks t 
+        JOIN export_shipments s ON t.shipment_id = s.id 
+        ORDER BY s.id DESC, t.id ASC
+    """)
+    tasks = cursor.fetchall()
+    for row_idx, t in enumerate(tasks, start=2):
+        is_done = "EVET, İLETİLDİ ✓" if t["is_completed"] == 1 else "HAYIR (Bekliyor)"
+        prio_tr = "ACİL 🚨" if t["priority"] == "urgent" else "Normal"
+        t_row = [
+            t["file_no"],
+            t["customer_name"],
+            t["title"],
+            t["category"] or "custom",
+            prio_tr,
+            is_done,
+            t["completed_at"] or "-",
+            t["due_datetime"] or "-",
+            t["notes"] or "-"
+        ]
+        ws_tasks.append(t_row)
+        for col_idx in range(1, len(t_row) + 1):
+            c = ws_tasks.cell(row=row_idx, column=col_idx)
+            c.border = thin_border
+            if col_idx in (1, 4, 5, 6, 7, 8):
+                c.alignment = center_align
+            else:
+                c.alignment = left_align
+
+    # 3. SHEET: MÜŞTERİ REHBERİ
+    ws_cust = wb.create_sheet(title="Müşteri Rehberi")
+    ws_cust.views.sheetView[0].showGridLines = True
+    cust_headers = ["Firma Adı", "Ülke", "Varış Limanı", "İletişim / Yetkili / Tel", "Notlar"]
+    ws_cust.append(cust_headers)
+    for col_idx in range(1, len(cust_headers) + 1):
+        cell = ws_cust.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+
+    cursor.execute("SELECT * FROM export_customers ORDER BY company_name ASC")
+    customers = cursor.fetchall()
+    for row_idx, c_data in enumerate(customers, start=2):
+        c_row = [
+            c_data["company_name"],
+            c_data["country"],
+            c_data["destination_port"] or "-",
+            c_data["contact_info"] or "-",
+            c_data["notes"] or "-"
+        ]
+        ws_cust.append(c_row)
+        for col_idx in range(1, len(c_row) + 1):
+            c = ws_cust.cell(row=row_idx, column=col_idx)
+            c.border = thin_border
+            if col_idx in (2, 3):
+                c.alignment = center_align
+            else:
+                c.alignment = left_align
+
+    # Auto-adjust column widths
+    for sheet in (ws_shipments, ws_tasks, ws_cust):
+        for col in sheet.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                val = str(cell.value or "")
+                if len(val) > max_len:
+                    max_len = len(val)
+            sheet.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
+@export_bp.route("/admin/exports/report/excel")
+def admin_export_excel_report():
+    conn = get_db()
+    buf = generate_export_excel_report(conn)
+    conn.close()
+    filename = f"Betasan_Ihracat_Raporu_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+@export_bp.route("/api/exports/report/excel")
+def api_export_excel_report():
+    conn = get_db()
+    buf = generate_export_excel_report(conn)
+    conn.close()
+    filename = f"Betasan_Ihracat_Raporu_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename
+    )

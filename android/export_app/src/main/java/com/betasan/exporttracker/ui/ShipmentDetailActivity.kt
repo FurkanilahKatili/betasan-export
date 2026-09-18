@@ -63,6 +63,10 @@ class ShipmentDetailActivity : AppCompatActivity() {
             showAddCustomTaskDialog()
         }
 
+        binding.btnShareWhatsApp.setOnClickListener {
+            shareShipmentSummary()
+        }
+
         if (shipmentId != -1) {
             loadTasks()
         }
@@ -186,6 +190,55 @@ class ShipmentDetailActivity : AppCompatActivity() {
         }
     }
 
+    private var currentTasks: List<ExportTask> = emptyList()
+
+    private fun shareShipmentSummary() {
+        val fileNo = intent.getStringExtra("file_no") ?: "EXP"
+        val customer = intent.getStringExtra("customer_name") ?: "Müşteri"
+        val country = intent.getStringExtra("country") ?: ""
+        val port = intent.getStringExtra("port") ?: ""
+        val incoterm = intent.getStringExtra("incoterm") ?: "FOB"
+        val cutoff = intent.getStringExtra("cutoff") ?: "Belirtilmedi"
+
+        val doneCount = currentTasks.count { it.isCompleted == 1 }
+        val totalCount = currentTasks.size
+
+        val sb = StringBuilder()
+        sb.append("📦 *BETASAN İHRACAT OPERASYON BİLGİLENDİRMESİ*\n")
+        sb.append("━━━━━━━━━━━━━━━━━━━━\n")
+        sb.append("📄 *Dosya:* $fileNo\n")
+        sb.append("🏢 *Müşteri:* $customer\n")
+        val route = "📍 *Rota:* $country" + (if (port.isNotBlank()) " • $port" else "") + " ($incoterm)\n"
+        sb.append(route)
+        sb.append("⏱️ *Cut-Off:* ${cutoff.replace("T", " ")}\n")
+        sb.append("📊 *İlerleme:* $doneCount/$totalCount Evrak Tamamlandı\n\n")
+        sb.append("📋 *Evrak & Görev Durumu:*\n")
+
+        if (currentTasks.isEmpty()) {
+            sb.append("Henüz evrak eklenmedi.\n")
+        } else {
+            for (t in currentTasks) {
+                val icon = if (t.isCompleted == 1) "✓" else "⏳"
+                val status = if (t.isCompleted == 1) "İletildi" else "Bekliyor"
+                sb.append("$icon ${t.title}: $status\n")
+            }
+        }
+
+        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_SUBJECT, "Betasan İhracat - $fileNo Durum Özeti")
+            putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
+        }
+
+        shareIntent.setPackage("com.whatsapp")
+        try {
+            startActivity(shareIntent)
+        } catch (_: Exception) {
+            shareIntent.setPackage(null)
+            startActivity(android.content.Intent.createChooser(shareIntent, "Operasyon Özetini Paylaş"))
+        }
+    }
+
     private fun loadTasks() {
         lifecycleScope.launch {
             try {
@@ -193,6 +246,7 @@ class ShipmentDetailActivity : AppCompatActivity() {
                 val response = api.getExportDetail(shipmentId)
                 if (response.isSuccessful && response.body()?.success == true) {
                     val tasks = response.body()?.tasks ?: emptyList()
+                    currentTasks = tasks
                     taskAdapter.updateList(tasks)
                 }
             } catch (e: Exception) {

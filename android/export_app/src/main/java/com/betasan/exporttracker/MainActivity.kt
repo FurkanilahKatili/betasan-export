@@ -13,6 +13,7 @@ import com.betasan.exporttracker.data.ExportApiClient
 import com.betasan.exporttracker.databinding.ActivityMainBinding
 import com.betasan.exporttracker.service.ExportWorkScheduler
 import com.betasan.exporttracker.ui.AlertsFragment
+import com.betasan.exporttracker.ui.CustomersFragment
 import com.betasan.exporttracker.ui.SettingsFragment
 import com.betasan.exporttracker.ui.ShipmentsFragment
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private val shipmentsFragment = ShipmentsFragment()
+    private val customersFragment = CustomersFragment()
     private val alertsFragment = AlertsFragment()
     private val settingsFragment = SettingsFragment()
 
@@ -41,6 +43,7 @@ class MainActivity : AppCompatActivity() {
         binding.bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_shipments -> loadFragment(shipmentsFragment)
+                R.id.nav_customers -> loadFragment(customersFragment)
                 R.id.nav_alerts -> loadFragment(alertsFragment)
                 R.id.nav_settings -> loadFragment(settingsFragment)
             }

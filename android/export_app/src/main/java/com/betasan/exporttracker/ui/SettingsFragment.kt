@@ -48,9 +48,25 @@ class SettingsFragment : Fragment() {
             ExportWorkScheduler.requestIgnoreBatteryOptimizations(requireContext())
         }
 
+        binding.btnDownloadExcelReport.setOnClickListener {
+            downloadAndOpenExcelReport()
+        }
+
         binding.tvServerUrl.text = ExportApiClient.getBaseUrl(requireContext())
         binding.btnChangeUrl.setOnClickListener {
             showUrlDialog()
+        }
+    }
+
+    private fun downloadAndOpenExcelReport() {
+        val baseUrl = ExportApiClient.getBaseUrl(requireContext())
+        val reportUrl = if (baseUrl.endsWith("/")) baseUrl + "exports/report/excel" else "$baseUrl/exports/report/excel"
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(reportUrl))
+            startActivity(intent)
+            Toast.makeText(requireContext(), "Excel raporu indiriliyor...", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Rapor bağlantısı açılamadı: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
         }
     }
 

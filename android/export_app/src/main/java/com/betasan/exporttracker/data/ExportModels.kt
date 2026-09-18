@@ -108,4 +108,12 @@ data class AddTaskRequest(
     @SerializedName("category") val category: String = "custom"
 )
 
+data class CreateCustomerRequest(
+    @SerializedName("company_name") val companyName: String,
+    @SerializedName("country") val country: String,
+    @SerializedName("destination_port") val destinationPort: String? = null,
+    @SerializedName("contact_info") val contactInfo: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
 
