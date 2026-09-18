@@ -89,3 +89,23 @@ data class CustomerItem(
     @SerializedName("notes") val notes: String?
 )
 
+data class CreateShipmentRequest(
+    @SerializedName("file_no") val fileNo: String,
+    @SerializedName("customer_name") val customerName: String,
+    @SerializedName("country") val country: String,
+    @SerializedName("destination_port") val destinationPort: String? = null,
+    @SerializedName("transport_mode") val transportMode: String = "sea",
+    @SerializedName("incoterm") val incoterm: String = "FOB",
+    @SerializedName("carrier_forwarder") val carrierForwarder: String? = null,
+    @SerializedName("notes") val notes: String? = null,
+    @SerializedName("custom_tasks") val customTasks: List<String> = emptyList()
+)
+
+data class AddTaskRequest(
+    @SerializedName("title") val title: String,
+    @SerializedName("notes") val notes: String? = null,
+    @SerializedName("priority") val priority: String = "normal",
+    @SerializedName("category") val category: String = "custom"
+)
+
+

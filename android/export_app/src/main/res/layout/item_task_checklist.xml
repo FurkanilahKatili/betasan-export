@@ -53,6 +53,16 @@
                     android:textColor="@color/text_muted"
                     android:textSize="12sp" />
             </LinearLayout>
+
+            <ImageView
+                android:id="@+id/btnDeleteTask"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:padding="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Görevi Sil"
+                android:src="@android:drawable/ic_menu_delete"
+                app:tint="@color/text_muted" />
         </LinearLayout>
 
         <LinearLayout

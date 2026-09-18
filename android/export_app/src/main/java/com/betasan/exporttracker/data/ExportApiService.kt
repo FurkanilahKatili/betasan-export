@@ -20,4 +20,16 @@ interface ExportApiService {
 
     @GET("customers")
     suspend fun getCustomers(): Response<CustomerListResponse>
+
+    @POST("exports/add")
+    suspend fun createExport(@retrofit2.http.Body request: CreateShipmentRequest): Response<GenericResponse>
+
+    @POST("exports/{id}/delete")
+    suspend fun deleteExport(@Path("id") id: Int): Response<GenericResponse>
+
+    @POST("exports/{id}/task/add")
+    suspend fun addCustomTask(@Path("id") id: Int, @retrofit2.http.Body request: AddTaskRequest): Response<GenericResponse>
+
+    @POST("exports/task/{id}/delete")
+    suspend fun deleteTask(@Path("id") id: Int): Response<GenericResponse>
 }

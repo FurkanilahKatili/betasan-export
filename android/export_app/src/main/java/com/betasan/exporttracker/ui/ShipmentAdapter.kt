@@ -12,7 +12,8 @@ import java.util.Locale
 
 class ShipmentAdapter(
     private var list: List<ShipmentItem> = emptyList(),
-    private val onItemClick: (ShipmentItem) -> Unit
+    private val onItemClick: (ShipmentItem) -> Unit,
+    private val onItemLongClick: ((ShipmentItem) -> Unit)? = null
 ) : RecyclerView.Adapter<ShipmentAdapter.ViewHolder>() {
 
     fun updateList(newList: List<ShipmentItem>) {
@@ -70,6 +71,10 @@ class ShipmentAdapter(
             }
 
             itemView.setOnClickListener { onItemClick(item) }
+            itemView.setOnLongClickListener {
+                onItemLongClick?.invoke(item)
+                true
+            }
         }
 
         private fun calculateHoursLeft(cutoffIso: String?): Long {

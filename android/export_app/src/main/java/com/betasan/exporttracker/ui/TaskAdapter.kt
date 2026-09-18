@@ -10,7 +10,8 @@ import com.betasan.exporttracker.databinding.ItemTaskChecklistBinding
 
 class TaskAdapter(
     private var list: List<ExportTask> = emptyList(),
-    private val onTaskToggle: (ExportTask) -> Unit = {}
+    private val onTaskToggle: (ExportTask) -> Unit = {},
+    private val onTaskDelete: (ExportTask) -> Unit = {}
 ) : RecyclerView.Adapter<TaskAdapter.ViewHolder>() {
 
     fun updateList(newList: List<ExportTask>) {
@@ -66,6 +67,10 @@ class TaskAdapter(
             b.layoutCheckbox.setOnClickListener {
                 b.cbDelivered.isChecked = !b.cbDelivered.isChecked
                 onTaskToggle(item)
+            }
+
+            b.btnDeleteTask.setOnClickListener {
+                onTaskDelete(item)
             }
         }
     }

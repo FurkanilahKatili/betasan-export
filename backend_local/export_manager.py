@@ -613,10 +613,17 @@ def admin_exports():
                 <!-- Kart Alt Aksiyonları -->
                 <div class="bg-slate-50 px-5 py-3 border-t border-slate-100 flex items-center justify-between text-xs">
                     <span class="text-slate-400 font-mono text-[11px]">{{ s.carrier_forwarder or 'Acente serbest' }}</span>
-                    <a href="{{ url_for('export_manager.admin_export_detail', id=s.id) }}" class="inline-flex items-center space-x-1.5 bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-600 text-slate-700 font-bold px-3 py-1.5 rounded-xl shadow-sm transition">
-                        <span>Evrakları İncele</span>
-                        <i class="fa-solid fa-arrow-right text-[10px]"></i>
-                    </a>
+                    <div class="flex items-center space-x-2">
+                        <a href="{{ url_for('export_manager.admin_export_detail', id=s.id) }}" class="inline-flex items-center space-x-1.5 bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-600 text-slate-700 font-bold px-3 py-1.5 rounded-xl shadow-xs transition">
+                            <span>Evrakları İncele</span>
+                            <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                        </a>
+                        <form action="{{ url_for('export_manager.admin_export_delete', id=s.id) }}" method="POST" onsubmit="return confirm('Bu ihracat siparişini ve tüm evraklarını silmek istediğinize emin misiniz?');" class="inline">
+                            <button type="submit" class="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Siparişi Sil">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
             {% else %}
@@ -856,8 +863,15 @@ def admin_export_detail(id):
 
                 <button onclick="document.getElementById('modal-add-task').classList.remove('hidden')" class="inline-flex items-center space-x-2 bg-[#0B3B60] hover:bg-sky-900 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition">
                     <i class="fa-solid fa-plus"></i>
-                    <span>Özel Evrak Ekle</span>
+                    <span>+ Özel İhtiyaç / Evrak Ekle</span>
                 </button>
+
+                <form action="{{ url_for('export_manager.admin_export_delete', id=s.id) }}" method="POST" onsubmit="return confirm('DİKKAT: Bu ihracat siparişini ve tüm evrak kontrol listesini kalıcı olarak silmek istediğinize emin misiniz?');" class="inline">
+                    <button type="submit" class="inline-flex items-center space-x-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold px-3 py-2 rounded-xl transition shadow-xs" title="Siparişi Sil">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span>Siparişi Sil</span>
+                    </button>
+                </form>
             </div>
         </div>
 
@@ -1306,6 +1320,18 @@ def admin_export_add():
         conn.close()
         flash(f"Hata: {e}", "error")
         return redirect(url_for('export_manager.admin_exports'))
+
+@export_bp.route("/admin/exports/<int:id>/delete", methods=["POST"])
+def admin_export_delete(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM export_tasks WHERE shipment_id = ?", (id,))
+    cursor.execute("DELETE FROM export_alerts WHERE shipment_id = ?", (id,))
+    cursor.execute("DELETE FROM export_shipments WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    flash("İhracat siparişi ve bağlı tüm evraklar başarıyla silindi", "success")
+    return redirect(url_for('export_manager.admin_exports'))
 
 @export_bp.route("/admin/exports/<int:id>/status", methods=["POST"])
 def admin_export_status(id):
@@ -1758,3 +1784,126 @@ def api_add_customer():
     except Exception as e:
         conn.close()
         return jsonify({"success": False, "message": str(e)}), 400
+
+# ==================== JSON REST API: SİPARİŞ EKLEME, SİLME & ÖZEL İHTİYAÇLAR ====================
+
+@export_bp.route("/api/exports/add", methods=["POST"])
+def api_export_add():
+    data = request.get_json(silent=True) or request.form
+    file_no = data.get("file_no", "").strip()
+    customer_name = data.get("customer_name", "").strip()
+    country = data.get("country", "").strip()
+    destination_port = data.get("destination_port", "").strip()
+    incoterm = data.get("incoterm", "FOB")
+    transport_mode = data.get("transport_mode", "sea")
+    carrier_forwarder = data.get("carrier_forwarder", "").strip()
+    cutoff_datetime = data.get("cutoff_datetime") or None
+    etd = data.get("etd") or None
+    eta = data.get("eta") or None
+    notes = data.get("notes", "").strip()
+    save_customer = data.get("save_customer", True)
+
+    if not file_no:
+        file_no = f"EXP-{datetime.now().strftime('%y%m%d%H%M')}"
+    if not customer_name or not country:
+        return jsonify({"success": False, "message": "Müşteri adı ve hedef ülke zorunludur"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        if save_customer and customer_name and country:
+            cursor.execute("SELECT COUNT(*) FROM export_customers WHERE company_name = ?", (customer_name,))
+            if cursor.fetchone()[0] == 0:
+                cursor.execute("""
+                INSERT INTO export_customers (company_name, country, destination_port)
+                VALUES (?, ?, ?)
+                """, (customer_name, country, destination_port))
+
+        cursor.execute("""
+        INSERT INTO export_shipments (file_no, customer_name, country, destination_port, incoterm, transport_mode, carrier_forwarder, cutoff_datetime, etd, eta, notes, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'preparing')
+        """, (file_no, customer_name, country, destination_port, incoterm, transport_mode, carrier_forwarder, cutoff_datetime, etd, eta, notes))
+        shipment_id = cursor.lastrowid
+        conn.commit()
+
+        # Standart görevleri ekle
+        create_default_tasks_for_shipment(conn, shipment_id, transport_mode, incoterm, cutoff_datetime, etd)
+
+        # Müşteriye özel ekstra ihtiyaçlar/maddeler varsa ekle
+        custom_tasks = data.get("custom_tasks", [])
+        if isinstance(custom_tasks, list):
+            for ct in custom_tasks:
+                if isinstance(ct, str) and ct.strip():
+                    cursor.execute("""
+                    INSERT INTO export_tasks (shipment_id, title, category, priority, notes, is_completed)
+                    VALUES (?, ?, 'custom', 'urgent', 'Müşteriye özel sipariş şartı', 0)
+                    """, (shipment_id, ct.strip()))
+                elif isinstance(ct, dict) and ct.get("title"):
+                    cursor.execute("""
+                    INSERT INTO export_tasks (shipment_id, title, category, priority, notes, is_completed)
+                    VALUES (?, ?, ?, ?, ?, 0)
+                    """, (shipment_id, ct["title"], ct.get("category", "custom"), ct.get("priority", "normal"), ct.get("notes", "")))
+            conn.commit()
+
+        conn.close()
+        return jsonify({"success": True, "id": shipment_id, "file_no": file_no, "message": "İhracat siparişi başarıyla oluşturuldu"})
+    except Exception as e:
+        conn.close()
+        return jsonify({"success": False, "message": str(e)}), 400
+
+@export_bp.route("/api/exports/<int:id>/delete", methods=["POST"])
+def api_export_delete(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM export_shipments WHERE id = ?", (id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({"success": False, "message": "Sipariş bulunamadı"}), 404
+    cursor.execute("DELETE FROM export_tasks WHERE shipment_id = ?", (id,))
+    cursor.execute("DELETE FROM export_alerts WHERE shipment_id = ?", (id,))
+    cursor.execute("DELETE FROM export_shipments WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Sipariş ve bağlı tüm evraklar başarıyla silindi"})
+
+@export_bp.route("/api/exports/<int:shipment_id>/task/add", methods=["POST"])
+def api_task_add(shipment_id):
+    data = request.get_json(silent=True) or request.form
+    title = data.get("title", "").strip()
+    category = data.get("category", "custom")
+    priority = data.get("priority", "normal")
+    due_datetime = data.get("due_datetime") or None
+    notes = data.get("notes", "").strip()
+
+    if not title:
+        return jsonify({"success": False, "message": "İhtiyaç / evrak başlığı zorunludur"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO export_tasks (shipment_id, title, category, priority, due_datetime, notes, is_completed)
+        VALUES (?, ?, ?, ?, ?, ?, 0)
+        """, (shipment_id, title, category, priority, due_datetime, notes))
+        task_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "task_id": task_id, "message": "Müşteriye özel ihtiyaç/evrak eklendi"})
+    except Exception as e:
+        conn.close()
+        return jsonify({"success": False, "message": str(e)}), 400
+
+@export_bp.route("/api/exports/task/<int:id>/delete", methods=["POST"])
+def api_task_delete(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT shipment_id FROM export_tasks WHERE id = ?", (id,))
+    task = cursor.fetchone()
+    if not task:
+        conn.close()
+        return jsonify({"success": False, "message": "İhtiyaç/evrak bulunamadı"}), 404
+    cursor.execute("DELETE FROM export_tasks WHERE id = ?", (id,))
+    cursor.execute("DELETE FROM export_alerts WHERE task_id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "İhtiyaç/evrak silindi"})
