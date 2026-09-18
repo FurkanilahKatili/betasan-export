@@ -90,6 +90,18 @@ def init_export_db(conn):
     );
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS export_customers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_name TEXT UNIQUE NOT NULL,
+        country TEXT NOT NULL,
+        destination_port TEXT,
+        contact_info TEXT,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
     try:
         cursor.execute("SELECT notif_type FROM notifications LIMIT 1")
     except Exception:
@@ -107,96 +119,6 @@ def init_export_db(conn):
     ]
     for k, v in default_settings:
         cursor.execute("INSERT OR IGNORE INTO export_settings (key, value) VALUES (?, ?)", (k, v))
-
-    # Seed Demo Shipments & Tasks if table is empty
-    cursor.execute("SELECT COUNT(*) FROM export_shipments")
-    if cursor.fetchone()[0] == 0:
-        now = datetime.now()
-        
-        # 1. Almanya Denizyolu (Cut-off Yaklaşıyor & Eksik Evrak Uyarılı)
-        s1_cutoff = (now + timedelta(hours=28)).strftime('%Y-%m-%d %H:%M')
-        s1_etd = (now + timedelta(days=2)).strftime('%Y-%m-%d')
-        s1_eta = (now + timedelta(days=14)).strftime('%Y-%m-%d')
-        s1_load = (now + timedelta(days=1)).strftime('%Y-%m-%d')
-        
-        cursor.execute("""
-        INSERT INTO export_shipments (file_no, customer_name, country, destination_port, incoterm, transport_mode, carrier_forwarder, loading_date, cutoff_datetime, etd, eta, status, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            "EXP-2026-DE-001", "MedTech Healthcare GmbH", "Almanya", "Hamburg Limanı", "FOB", "sea",
-            "Maersk Line / Kuehne+Nagel", s1_load, s1_cutoff, s1_etd, s1_eta, "preparing",
-            "2x40HC Tıbbi Flaster ve Elastik Bandaj sevkiyatı. Gemiye yükleme acil."
-        ))
-        s1_id = cursor.lastrowid
-        
-        # 2. İtalya Karayolu (Geciken Evrak Uyarılı)
-        s2_etd = (now - timedelta(days=1)).strftime('%Y-%m-%d')
-        s2_eta = (now + timedelta(days=4)).strftime('%Y-%m-%d')
-        s2_load = (now - timedelta(days=2)).strftime('%Y-%m-%d')
-        cursor.execute("""
-        INSERT INTO export_shipments (file_no, customer_name, country, destination_port, incoterm, transport_mode, carrier_forwarder, loading_date, cutoff_datetime, etd, eta, status, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            "EXP-2026-IT-002", "Sanitaria Pharma Nord S.r.l.", "İtalya", "Milano Terminali", "DAP", "road",
-            "Ekol Lojistik (Tır)", s2_load, None, s2_etd, s2_eta, "customs",
-            "Kapı teslimi medikal sarf malzemesi ihracatı."
-        ))
-        s2_id = cursor.lastrowid
-
-        # 3. Mısır Denizyolu (Yolda - Orijinal Kargo Evrakı Bekleyen)
-        s3_etd = (now - timedelta(days=4)).strftime('%Y-%m-%d')
-        s3_eta = (now + timedelta(days=9)).strftime('%Y-%m-%d')
-        cursor.execute("""
-        INSERT INTO export_shipments (file_no, customer_name, country, destination_port, incoterm, transport_mode, carrier_forwarder, loading_date, cutoff_datetime, etd, eta, status, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            "EXP-2026-EG-003", "Cairo Medical Supply Co.", "Mısır", "İskenderiye Limanı", "CIF", "sea",
-            "MSC Mediterranean Shipping", (now - timedelta(days=5)).strftime('%Y-%m-%d'), None, s3_etd, s3_eta, "in_transit",
-            "Akreditifli satış (L/C). Orijinal konşimento ve faturalar müşteriye kargolanmalı."
-        ))
-        s3_id = cursor.lastrowid
-
-        # Seed Tasks for S1 (Almanya)
-        tasks_s1 = [
-            (s1_id, "Ticari Fatura (Commercial Invoice)", "document", 1, now.strftime('%Y-%m-%d %H:%M'), None, None, None, "Fatura kesildi ve onaylandı.", "urgent"),
-            (s1_id, "Çeki Listesi (Packing List)", "document", 1, now.strftime('%Y-%m-%d %H:%M'), None, None, None, "Depo koli adetleri doğrulandı.", "urgent"),
-            (s1_id, "ATR Dolaşım Belgesi Düzenlenmesi", "document", 0, None, (now + timedelta(hours=20)).strftime('%Y-%m-%d %H:%M'), None, None, "Gümrükçüye tescil için iletilecek.", "normal"),
-            (s1_id, "Konşimento Talimatı (BL Draft Instruction)", "transport", 0, None, (now + timedelta(hours=12)).strftime('%Y-%m-%d %H:%M'), None, None, "Acenteye acil iletilmeli! Cutoff'a az kaldı.", "urgent"),
-            (s1_id, "İhracat Gümrük Beyannamesi Tescili", "customs", 0, None, s1_cutoff, None, None, "Gümrük müşavirinden teyit bekleniyor.", "urgent"),
-            (s1_id, "Analiz & Kalite Sertifikası (COA / CE)", "document", 1, now.strftime('%Y-%m-%d %H:%M'), None, None, None, "Kalite kontrol raporu hazır.", "normal"),
-            (s1_id, "Orijinal Evrak Kargosu (DHL/FedEx)", "courier", 0, None, (now + timedelta(days=3)).strftime('%Y-%m-%d %H:%M'), None, None, "Gemi kalktıktan sonra kargolanacak.", "urgent")
-        ]
-        cursor.executemany("""
-        INSERT INTO export_tasks (shipment_id, title, category, is_completed, completed_at, due_datetime, document_file_url, tracking_code, notes, priority)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, tasks_s1)
-
-        # Seed Tasks for S2 (İtalya - Overdue task)
-        tasks_s2 = [
-            (s2_id, "Ticari Fatura (Commercial Invoice)", "document", 1, now.strftime('%Y-%m-%d %H:%M'), None, None, None, "Tamamlandı", "urgent"),
-            (s2_id, "Çeki Listesi (Packing List)", "document", 1, now.strftime('%Y-%m-%d %H:%M'), None, None, None, "Tamamlandı", "urgent"),
-            (s2_id, "CMR Karayolu Taşıma Belgesi", "transport", 1, now.strftime('%Y-%m-%d %H:%M'), None, None, None, "Şoföre teslim edildi.", "urgent"),
-            (s2_id, "EUR.1 Dolaşım Belgesi", "document", 0, None, (now - timedelta(hours=14)).strftime('%Y-%m-%d %H:%M'), None, None, "Dün onaylanması gerekiyordu, gecikmede!", "urgent"),
-            (s2_id, "İhracat Gümrük Beyannamesi", "customs", 0, None, now.strftime('%Y-%m-%d 16:00'), None, None, "Kapıkule çıkışı bekleniyor.", "urgent")
-        ]
-        cursor.executemany("""
-        INSERT INTO export_tasks (shipment_id, title, category, is_completed, completed_at, due_datetime, document_file_url, tracking_code, notes, priority)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, tasks_s2)
-
-        # Seed Tasks for S3 (Mısır - In Transit, Kargo eksik)
-        tasks_s3 = [
-            (s3_id, "Ticari Fatura (Commercial Invoice)", "document", 1, now.strftime('%Y-%m-%d %H:%M'), None, None, None, "Onaylı", "urgent"),
-            (s3_id, "Çeki Listesi (Packing List)", "document", 1, now.strftime('%Y-%m-%d %H:%M'), None, None, None, "Onaylı", "urgent"),
-            (s3_id, "Menşe Şahadetnamesi (Mısır Konsolosluk Onaylı)", "document", 1, now.strftime('%Y-%m-%d %H:%M'), None, None, None, "Konsolosluk tasdiki yapıldı.", "normal"),
-            (s3_id, "Orijinal Konşimento (Original B/L 3/3)", "transport", 1, now.strftime('%Y-%m-%d %H:%M'), None, None, None, "Acenteden asıllar teslim alındı.", "urgent"),
-            (s3_id, "Orijinal Evrakların Alıcıya Kargolanması", "courier", 0, None, (now - timedelta(days=1)).strftime('%Y-%m-%d %H:%M'), None, None, "Gemi yola çıktı fakat kargo takip kodu girilmedi!", "urgent"),
-            (s3_id, "Akreditif Bakiye Tahsilatı Teyidi", "payment", 0, None, (now + timedelta(days=10)).strftime('%Y-%m-%d %H:%M'), None, None, "Bankaya evrak ibrazı bekleniyor.", "normal")
-        ]
-        cursor.executemany("""
-        INSERT INTO export_tasks (shipment_id, title, category, is_completed, completed_at, due_datetime, document_file_url, tracking_code, notes, priority)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, tasks_s3)
 
     conn.commit()
 
@@ -461,6 +383,11 @@ def admin_exports():
     cursor.execute(query, params)
     raw_shipments = cursor.fetchall()
 
+    # Kayıtlı Müşteriler
+    cursor.execute("SELECT * FROM export_customers ORDER BY company_name ASC")
+    raw_customers = cursor.fetchall()
+    customers = [dict(c) for c in raw_customers]
+
     shipment_list = []
     for s in raw_shipments:
         cursor.execute("SELECT COUNT(*) as total, SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as done FROM export_tasks WHERE shipment_id = ?", (s["id"],))
@@ -507,6 +434,10 @@ def admin_exports():
                 <p class="text-sm text-slate-500 mt-1">Yapılan ihracatların evrak durumu, cut-off süreleri ve gecikme uyarılarını buradan 7/24 izleyin.</p>
             </div>
             <div class="flex items-center space-x-3">
+                <a href="{{ url_for('export_manager.admin_customers') }}" class="inline-flex items-center space-x-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl shadow-xs transition text-sm">
+                    <i class="fa-solid fa-users text-sky-600"></i>
+                    <span>Müşteri Rehberi ({{ customers|length }})</span>
+                </a>
                 <a href="{{ url_for('export_manager.admin_export_alerts') }}" class="relative inline-flex items-center space-x-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold px-4 py-2.5 rounded-xl shadow-sm transition text-sm">
                     <i class="fa-solid fa-bell animate-pulse"></i>
                     <span>Alarmlar & Uyarılar</span>
@@ -727,8 +658,24 @@ def admin_exports():
                         <input type="text" name="file_no" required placeholder="Örn: EXP-2026-004" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Müşteri / Alıcı Unvanı *</label>
-                        <input type="text" name="customer_name" required placeholder="Örn: Cairo Medical Supplies" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-slate-700 uppercase">Müşteri / Alıcı Unvanı *</label>
+                            <button type="button" onclick="enableNewCustomerMode()" class="text-[11px] text-blue-600 font-bold hover:underline" id="btn-toggle-customer">+ Listede Yoksa Yeni Yaz</button>
+                        </div>
+                        <select id="customer_select" name="customer_select" onchange="onCustomerSelectChanged(this)" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">-- Kayıtlı Müşterilerden Seçin ({{ customers|length }}) --</option>
+                            {% for c in customers %}
+                            <option value="{{ c.company_name }}" data-country="{{ c.country }}" data-port="{{ c.destination_port or '' }}">{{ c.company_name }} ({{ c.country }})</option>
+                            {% endfor %}
+                            <option value="__NEW__">+ Yeni Müşteri Ekle...</option>
+                        </select>
+                        <div id="new_customer_div" class="hidden space-y-2 mt-2">
+                            <input type="text" id="custom_customer_name" name="custom_customer_name" placeholder="Firma Ünvanını Yazın..." class="w-full px-3.5 py-2.5 bg-white border border-blue-400 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            <label class="flex items-center space-x-2 text-xs text-slate-600 cursor-pointer select-none">
+                                <input type="checkbox" name="save_customer" value="1" checked class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500">
+                                <span>Bu müşteriyi veritabanına kaydet (sonraki ihracatlarda seçmek için)</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -796,6 +743,43 @@ def admin_exports():
             </form>
         </div>
     </div>
+
+    <script>
+    function onCustomerSelectChanged(sel) {
+        const val = sel.value;
+        const newDiv = document.getElementById('new_customer_div');
+        const customInput = document.getElementById('custom_customer_name');
+        const toggleBtn = document.getElementById('btn-toggle-customer');
+        if (val === '__NEW__') {
+            newDiv.classList.remove('hidden');
+            customInput.required = true;
+            customInput.focus();
+            toggleBtn.textContent = "← Listeden Seç";
+        } else {
+            newDiv.classList.add('hidden');
+            customInput.required = false;
+            toggleBtn.textContent = "+ Listede Yoksa Yeni Yaz";
+            if (val) {
+                const opt = sel.options[sel.selectedIndex];
+                const country = opt.getAttribute('data-country');
+                const port = opt.getAttribute('data-port');
+                if (country) document.querySelector('input[name="country"]').value = country;
+                if (port) document.querySelector('input[name="destination_port"]').value = port;
+            }
+        }
+    }
+    function enableNewCustomerMode() {
+        const sel = document.getElementById('customer_select');
+        const newDiv = document.getElementById('new_customer_div');
+        if (newDiv.classList.contains('hidden')) {
+            sel.value = '__NEW__';
+            onCustomerSelectChanged(sel);
+        } else {
+            sel.value = '';
+            onCustomerSelectChanged(sel);
+        }
+    }
+    </script>
     """
 
     from server import BASE_LAYOUT, get_local_ip
@@ -809,7 +793,8 @@ def admin_exports():
         urgent_tasks_count=urgent_tasks_count,
         completed_shipments_count=completed_shipments_count,
         filter_mode=filter_mode,
-        search=search
+        search=search,
+        customers=customers
     )
 
 
@@ -950,10 +935,14 @@ def admin_export_detail(id):
                 {% for t in tasks %}
                 <div class="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/80 transition {{ 'bg-emerald-50/30' if t.is_completed else '' }}">
                     <div class="flex items-start space-x-3.5 flex-1">
-                        <!-- Toggle Checkbox -->
-                        <form action="{{ url_for('export_manager.admin_task_toggle', id=t.id) }}" method="POST" class="mt-0.5">
-                            <button type="submit" class="w-7 h-7 rounded-xl flex items-center justify-center transition shadow-xs {{ 'bg-emerald-500 text-white hover:bg-emerald-600' if t.is_completed else 'bg-slate-100 border border-slate-300 text-transparent hover:text-slate-400' }}">
-                                <i class="fa-solid fa-check text-xs"></i>
+                        <!-- İlgili Evrak İletildi mi? Onay Kutusu -->
+                        <form action="{{ url_for('export_manager.admin_task_toggle', id=t.id) }}" method="POST" class="inline">
+                            <button type="submit" class="flex items-center space-x-2.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-xs {{ 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100' if t.is_completed else 'bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100' }}" title="Durumu değiştirmek için tıklayın">
+                                <div class="w-5 h-5 rounded-md flex items-center justify-center transition {{ 'bg-emerald-600 text-white' if t.is_completed else 'border-2 border-slate-400 bg-white' }}">
+                                    {% if t.is_completed %}<i class="fa-solid fa-check text-[11px]"></i>{% endif %}
+                                </div>
+                                <span class="hidden sm:inline">İlgili evrak iletildi mi? : </span>
+                                <strong class="{{ 'text-emerald-700' if t.is_completed else 'text-slate-800' }}">{{ 'EVET, İLETİLDİ ✓' if t.is_completed else 'HAYIR (Bekliyor)' }}</strong>
                             </button>
                         </form>
 
@@ -1271,7 +1260,14 @@ def admin_export_add():
     cursor = conn.cursor()
     
     file_no = request.form.get("file_no", "").strip()
-    customer_name = request.form.get("customer_name", "").strip()
+    customer_select = request.form.get("customer_select", "").strip()
+    custom_customer_name = request.form.get("custom_customer_name", "").strip()
+
+    if customer_select == "__NEW__" or not customer_select:
+        customer_name = custom_customer_name
+    else:
+        customer_name = customer_select
+
     country = request.form.get("country", "").strip()
     destination_port = request.form.get("destination_port", "").strip()
     incoterm = request.form.get("incoterm", "FOB")
@@ -1281,8 +1277,18 @@ def admin_export_add():
     etd = request.form.get("etd") or None
     eta = request.form.get("eta") or None
     notes = request.form.get("notes", "").strip()
+    save_customer = request.form.get("save_customer") == "1"
 
     try:
+        # Müşteriyi veritabanına kaydetme seçilmişse ve yoksa ekle
+        if save_customer and customer_name and country:
+            cursor.execute("SELECT COUNT(*) FROM export_customers WHERE company_name = ?", (customer_name,))
+            if cursor.fetchone()[0] == 0:
+                cursor.execute("""
+                INSERT INTO export_customers (company_name, country, destination_port)
+                VALUES (?, ?, ?)
+                """, (customer_name, country, destination_port))
+
         cursor.execute("""
         INSERT INTO export_shipments (file_no, customer_name, country, destination_port, incoterm, transport_mode, carrier_forwarder, cutoff_datetime, etd, eta, notes, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'preparing')
@@ -1518,3 +1524,237 @@ def api_check_alerts():
     alerts = run_export_rule_engine(conn, force=True)
     conn.close()
     return jsonify({"success": True, "new_alerts": alerts, "count": len(alerts)})
+
+# ==================== MÜŞTERİ REHBERİ YÖNETİMİ ====================
+
+@export_bp.route("/admin/exports/customers", methods=["GET"])
+def admin_customers():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM export_customers ORDER BY company_name ASC")
+    raw = cursor.fetchall()
+    customers = [dict(c) for c in raw]
+    conn.close()
+
+    content = """
+    <div class="space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <a href="{{ url_for('export_manager.admin_exports') }}" class="w-10 h-10 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-400 flex items-center justify-center shadow-sm transition">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="text-2xl font-black text-slate-800 tracking-tight">İhracat Müşteri Rehberi</h1>
+                    <p class="text-sm text-slate-500 mt-0.5">Daimi müşterilerinizi buradan yönetin. Bir kez kaydettiğinizde dosya açarken tek tıkla seçebilirsiniz.</p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('modal-add-customer').classList.remove('hidden')" class="inline-flex items-center space-x-2 bg-[#0B3B60] hover:bg-sky-900 text-white font-bold px-4 py-2.5 rounded-xl shadow-md transition text-sm">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Yeni Müşteri Ekle</span>
+            </button>
+        </div>
+
+        <!-- Müşteri Listesi Tablosu -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-black text-slate-900">Kayıtlı Müşteriler ({{ customers|length }})</h2>
+                    <p class="text-xs text-slate-400">Yeni ihracat oluştururken bu listedeki unvanlar ve limanlar otomatik doldurulur.</p>
+                </div>
+            </div>
+
+            {% if customers %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-700">
+                    <thead class="bg-slate-50 text-slate-400 uppercase font-black tracking-wider border-b border-slate-100">
+                        <tr>
+                            <th class="p-4">Firma / Müşteri Unvanı</th>
+                            <th class="p-4">Hedef Ülke</th>
+                            <th class="p-4">Liman / Şehir</th>
+                            <th class="p-4">İletişim & Yetkili</th>
+                            <th class="p-4">Notlar</th>
+                            <th class="p-4 text-right">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for c in customers %}
+                        <tr class="hover:bg-slate-50/60 transition">
+                            <td class="p-4 font-bold text-slate-900 text-sm">
+                                <i class="fa-solid fa-building text-slate-400 mr-2"></i>{{ c.company_name }}
+                            </td>
+                            <td class="p-4 font-semibold text-slate-800">
+                                <span class="bg-blue-50 text-blue-800 px-2.5 py-1 rounded-lg border border-blue-100">{{ c.country }}</span>
+                            </td>
+                            <td class="p-4 text-slate-600 font-mono">{{ c.destination_port or '-' }}</td>
+                            <td class="p-4 text-slate-600">{{ c.contact_info or '-' }}</td>
+                            <td class="p-4 text-slate-500 italic">{{ c.notes or '-' }}</td>
+                            <td class="p-4 text-right">
+                                <form action="{{ url_for('export_manager.admin_customer_delete', id=c.id) }}" method="POST" onsubmit="return confirm('Bu müşteriyi silmek istediğinize emin misiniz?');" class="inline">
+                                    <button type="submit" class="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Müşteriyi Sil">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-12 text-center text-slate-400">
+                <i class="fa-solid fa-users text-5xl text-slate-300 mb-3 block"></i>
+                <h3 class="text-base font-bold text-slate-700">Henüz Kayıtlı Müşteri Yok</h3>
+                <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Sık çalıştığınız ~20 müşterinizi buraya bir defa kaydedin, sevkiyat açarken isimlerini bir daha asla elle yazmayın.</p>
+                <button onclick="document.getElementById('modal-add-customer').classList.remove('hidden')" class="mt-4 inline-flex items-center space-x-2 bg-[#0B3B60] text-white text-xs font-bold px-4 py-2 rounded-xl">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>İlk Müşteriyi Ekle</span>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- MODAL: YENİ MÜŞTERİ EKLE -->
+    <div id="modal-add-customer" class="hidden fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="font-bold text-slate-900 text-sm">Yeni Daimi Müşteri Ekle</h3>
+                <button onclick="document.getElementById('modal-add-customer').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form action="{{ url_for('export_manager.admin_customer_add') }}" method="POST" class="space-y-4 mt-4 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Müşteri / Firma Unvanı *</label>
+                    <input type="text" name="company_name" required placeholder="Örn: Cairo Medical Supply Co." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Hedef Ülke *</label>
+                        <input type="text" name="country" required placeholder="Örn: Mısır, Almanya" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Hedef Liman / Şehir</label>
+                        <input type="text" name="destination_port" placeholder="Örn: İskenderiye Limanı" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Yetkili Kişi & İletişim (Tel/E-posta)</label>
+                    <input type="text" name="contact_info" placeholder="Örn: Ahmed Hassan - ahmed@cairo.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Özel Müşteri Notu</label>
+                    <input type="text" name="notes" placeholder="Örn: Akreditifli çalışır, orijinal fatura 3 nüsha ister..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+                    <button type="button" onclick="document.getElementById('modal-add-customer').classList.add('hidden')" class="px-4 py-2 font-bold text-slate-500">Vazgeç</button>
+                    <button type="submit" class="px-5 py-2 font-bold bg-[#0B3B60] text-white rounded-xl shadow transition">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    """
+
+    from server import BASE_LAYOUT, get_local_ip
+    return render_template_string(
+        BASE_LAYOUT.replace("{% block content %}{% endblock %}", content),
+        title="İhracat Müşteri Rehberi",
+        local_ip=get_local_ip(),
+        customers=customers
+    )
+
+@export_bp.route("/admin/exports/customers/add", methods=["POST"])
+def admin_customer_add():
+    company_name = request.form.get("company_name", "").strip()
+    country = request.form.get("country", "").strip()
+    destination_port = request.form.get("destination_port", "").strip()
+    contact_info = request.form.get("contact_info", "").strip()
+    notes = request.form.get("notes", "").strip()
+    
+    if not company_name or not country:
+        flash("Firma adı ve ülke zorunludur", "error")
+        return redirect(url_for('export_manager.admin_customers'))
+        
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO export_customers (company_name, country, destination_port, contact_info, notes)
+        VALUES (?, ?, ?, ?, ?)
+        """, (company_name, country, destination_port, contact_info, notes))
+        conn.commit()
+        flash("Müşteri başarıyla rehbere kaydedildi", "success")
+    except Exception as e:
+        flash(f"Müşteri kaydedilemedi: {e}", "error")
+    conn.close()
+    return redirect(url_for('export_manager.admin_customers'))
+
+@export_bp.route("/admin/exports/customers/<int:id>/delete", methods=["POST"])
+def admin_customer_delete(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM export_customers WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    flash("Müşteri rehberden silindi", "success")
+    return redirect(url_for('export_manager.admin_customers'))
+
+
+# ==================== JSON REST API: MÜŞTERİLER & GÖREV TOGGLE ====================
+
+@export_bp.route("/api/exports/task/<int:id>/toggle", methods=["POST"])
+def api_task_toggle(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT shipment_id, is_completed FROM export_tasks WHERE id = ?", (id,))
+    task = cursor.fetchone()
+    if not task:
+        conn.close()
+        return jsonify({"success": False, "message": "Görev bulunamadı"}), 404
+        
+    new_state = 0 if task["is_completed"] == 1 else 1
+    comp_at = datetime.now().strftime('%Y-%m-%d %H:%M') if new_state == 1 else None
+    cursor.execute("UPDATE export_tasks SET is_completed = ?, completed_at = ? WHERE id = ?", (new_state, comp_at, id))
+    if new_state == 1:
+        cursor.execute("UPDATE export_alerts SET is_resolved = 1 WHERE task_id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({
+        "success": True,
+        "task_id": id,
+        "is_completed": new_state,
+        "completed_at": comp_at,
+        "message": "İlgili evrak iletildi ✓" if new_state == 1 else "İlgili evrak iletilmedi (bekliyor)"
+    })
+
+@export_bp.route("/api/customers", methods=["GET"])
+def api_get_customers():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM export_customers ORDER BY company_name ASC")
+    customers = [dict(c) for c in cursor.fetchall()]
+    conn.close()
+    return jsonify({"success": True, "customers": customers, "count": len(customers)})
+
+@export_bp.route("/api/customers", methods=["POST"])
+def api_add_customer():
+    data = request.get_json(silent=True) or request.form
+    company_name = data.get("company_name", "").strip()
+    country = data.get("country", "").strip()
+    destination_port = data.get("destination_port", "").strip()
+    contact_info = data.get("contact_info", "").strip()
+    notes = data.get("notes", "").strip()
+    if not company_name or not country:
+        return jsonify({"success": False, "message": "Firma adı ve ülke zorunludur"}), 400
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO export_customers (company_name, country, destination_port, contact_info, notes)
+        VALUES (?, ?, ?, ?, ?)
+        """, (company_name, country, destination_port, contact_info, notes))
+        cid = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "id": cid, "message": "Müşteri rehbere eklendi"})
+    except Exception as e:
+        conn.close()
+        return jsonify({"success": False, "message": str(e)}), 400

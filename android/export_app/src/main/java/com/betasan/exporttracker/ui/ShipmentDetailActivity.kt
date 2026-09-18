@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.betasan.exporttracker.data.ExportApiClient
+import com.betasan.exporttracker.data.ExportTask
 import com.betasan.exporttracker.databinding.ActivityShipmentDetailBinding
 import kotlinx.coroutines.launch
 
@@ -36,12 +37,32 @@ class ShipmentDetailActivity : AppCompatActivity() {
         binding.tvDetailRoute.text = "📍 $country • $port ($incoterm)"
         binding.tvDetailCutoff.text = "⏱️ Cut-off Tarihi: " + cutoff.replace("T", " ")
 
-        taskAdapter = TaskAdapter()
+        taskAdapter = TaskAdapter { task ->
+            toggleTaskStatus(task)
+        }
         binding.rvTasks.layoutManager = LinearLayoutManager(this)
         binding.rvTasks.adapter = taskAdapter
 
         if (shipmentId != -1) {
             loadTasks()
+        }
+    }
+
+    private fun toggleTaskStatus(task: ExportTask) {
+        lifecycleScope.launch {
+            try {
+                val api = ExportApiClient.getApiService(this@ShipmentDetailActivity)
+                val response = api.toggleTask(task.id)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    val msg = response.body()?.message ?: "Evrak durumu güncellendi"
+                    Toast.makeText(this@ShipmentDetailActivity, msg, Toast.LENGTH_SHORT).show()
+                    loadTasks()
+                } else {
+                    Toast.makeText(this@ShipmentDetailActivity, "İşlem başarısız", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@ShipmentDetailActivity, "Hata: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

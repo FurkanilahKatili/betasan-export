@@ -192,6 +192,7 @@ BASE_LAYOUT = """
             <div class="flex items-center space-x-5 text-sm font-medium">
                 <a href="{{ url_for('admin_dashboard') }}" class="hover:text-sky-300 transition flex items-center space-x-1"><i class="fa-solid fa-chart-pie"></i><span>Özet</span></a>
                 <a href="{{ url_for('export_manager.admin_exports') }}" class="hover:text-sky-200 transition flex items-center space-x-1.5 bg-sky-900/70 text-sky-200 font-bold px-3 py-1.5 rounded-xl border border-sky-600/50 shadow-xs"><i class="fa-solid fa-ship text-sky-300"></i><span>İhracat Takip</span></a>
+                <a href="{{ url_for('export_manager.admin_customers') }}" class="hover:text-sky-200 transition flex items-center space-x-1"><i class="fa-solid fa-users text-sky-300"></i><span>Müşteriler</span></a>
                 <a href="{{ url_for('export_manager.admin_export_alerts') }}" class="hover:text-amber-200 transition flex items-center space-x-1.5 text-amber-300 font-bold"><i class="fa-solid fa-triangle-exclamation"></i><span>Alarmlar</span></a>
                 <a href="{{ url_for('admin_products') }}" class="hover:text-sky-300 transition flex items-center space-x-1"><i class="fa-solid fa-box-archive"></i><span>Ürünler</span></a>
                 <a href="{{ url_for('admin_categories') }}" class="hover:text-sky-300 transition flex items-center space-x-1"><i class="fa-solid fa-tags"></i><span>Kategoriler</span></a>

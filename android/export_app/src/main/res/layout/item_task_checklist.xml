@@ -3,9 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
+    android:layout_marginBottom="10dp"
     app:cardBackgroundColor="@color/white"
-    app:cardCornerRadius="12dp"
+    app:cardCornerRadius="14dp"
     app:cardElevation="1dp"
     app:strokeColor="@color/border_color"
     app:strokeWidth="1dp">
@@ -13,40 +13,84 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="12dp">
-
-        <ImageView
-            android:id="@+id/ivCheckStatus"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:src="@drawable/ic_pending" />
+        android:orientation="vertical"
+        android:padding="14dp">
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/tvTaskTitle"
+            <ImageView
+                android:id="@+id/ivCheckStatus"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:src="@drawable/ic_pending" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvTaskTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Ticari Fatura (Commercial Invoice)"
+                    android:textColor="@color/text_main"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvTaskSubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Müşteri onaylı proforma faturanın hazırlanması."
+                    android:textColor="@color/text_muted"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutCheckbox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_rounded_card"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="6dp">
+
+            <com.google.android.material.checkbox.MaterialCheckBox
+                android:id="@+id/cbDelivered"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Commercial Invoice (İhracat Faturası)"
+                android:text="İlgili evrak iletildi mi?"
                 android:textColor="@color/text_main"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
             <TextView
-                android:id="@+id/tvTaskSubtitle"
+                android:id="@+id/tvDeliveredBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Durum: Bekliyor • Öncelik: Yüksek"
-                android:textColor="@color/text_muted"
-                android:textSize="12sp" />
+                android:background="@drawable/bg_chip_warning"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
+                android:text="Bekliyor"
+                android:textColor="@color/accent_amber"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
     </LinearLayout>

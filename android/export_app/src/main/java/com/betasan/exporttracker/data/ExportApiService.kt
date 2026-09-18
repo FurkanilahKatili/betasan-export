@@ -14,4 +14,10 @@ interface ExportApiService {
 
     @POST("exports/check_alerts")
     suspend fun checkAlerts(): Response<GenericResponse>
+
+    @POST("exports/task/{id}/toggle")
+    suspend fun toggleTask(@Path("id") id: Int): Response<TaskToggleResponse>
+
+    @GET("customers")
+    suspend fun getCustomers(): Response<CustomerListResponse>
 }

@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *.class
@@ -11,6 +11,7 @@ venv/
 android/.gradle/
 android/build/
 android/app/build/
+android/export_app/build/
 android/captures/
 android/.externalNativeBuild/
 android/.cxx/

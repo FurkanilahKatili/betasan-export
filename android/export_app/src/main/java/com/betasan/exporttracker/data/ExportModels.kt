@@ -65,3 +65,27 @@ data class GenericResponse(
     @SerializedName("success") val success: Boolean,
     @SerializedName("message") val message: String?
 )
+
+data class TaskToggleResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("task_id") val taskId: Int?,
+    @SerializedName("is_completed") val isCompleted: Int?,
+    @SerializedName("completed_at") val completedAt: String?,
+    @SerializedName("message") val message: String?
+)
+
+data class CustomerListResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("customers") val customers: List<CustomerItem>?,
+    @SerializedName("count") val count: Int = 0
+)
+
+data class CustomerItem(
+    @SerializedName("id") val id: Int,
+    @SerializedName("company_name") val companyName: String,
+    @SerializedName("country") val country: String,
+    @SerializedName("destination_port") val destinationPort: String?,
+    @SerializedName("contact_info") val contactInfo: String?,
+    @SerializedName("notes") val notes: String?
+)
+
